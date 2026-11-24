@@ -247,4 +247,36 @@ describe('createLoginoteAdapter', () => {
       createLoginoteAdapter({ root: 'relative/path', maxFiles: 5000, maxFileBytes: 1_048_576 }),
     ).toThrow();
   });
+
+  test('facts revision folds in the metadata.json content hash', async () => {
+    const root = tempDir('loginote-rev-');
+    const notePath = join(root, 'note.md');
+    const metaPath = join(root, 'metadata.json');
+    writeFileSync(notePath, '# note\n\nbody\n');
+    writeFileSync(
+      metaPath,
+      JSON.stringify({ notes: [{ id: 'a', title: 'note', dueDate: '2026-01-01' }] }),
+    );
+
+    const make = (): ReturnType<typeof createLoginoteAdapter> =>
+      createLoginoteAdapter({ root, maxFiles: 5000, maxFileBytes: 1_048_576 });
+
+    const revA = (await make().facts()).revision;
+    // Unchanged content => identical revision from a fresh adapter.
+    expect((await make().facts()).revision).toBe(revA);
+
+    // Metadata-only change (dueDate) => revision must change even though the
+    // Markdown files are byte-for-byte identical.
+    writeFileSync(
+      metaPath,
+      JSON.stringify({ notes: [{ id: 'a', title: 'note', dueDate: '2027-02-02' }] }),
+    );
+    const revB = (await make().facts()).revision;
+    expect(revB).not.toBe(revA);
+
+    // Markdown-only change => revision must also change.
+    writeFileSync(notePath, '# note\n\nchanged body\n');
+    const revC = (await make().facts()).revision;
+    expect(revC).not.toBe(revB);
+  });
 });

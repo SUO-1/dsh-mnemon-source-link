@@ -9,6 +9,7 @@
 // All directory traversal / bounding lives in scan.ts; this module only maps a
 // ScanResult (augmented with metadata merges) into the LinkAdapter contract.
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type {
@@ -60,7 +61,15 @@ interface MetaEntry {
 interface MetadataResult {
   entries: MetaEntry[];
   diagnostics: string[];
+  /**
+   * Stable sha256 of the raw metadata.json text (folded into facts().revision),
+   * or the literal `'none'` when the sidecar is missing or unparseable.
+   */
+  hash: string;
 }
+
+/** Fixed revision component contributed when there is no usable metadata. */
+const NO_METADATA_HASH = 'none';
 
 /** Normalize a path for comparison: forward slashes, no leading `./` or `/`. */
 function normPath(p: string): string {
@@ -140,18 +149,29 @@ function loadMetadata(metadataPath: string): MetadataResult {
   try {
     rawText = readFileSync(metadataPath, 'utf8');
   } catch {
-    return { entries: [], diagnostics: [`metadata not readable: ${metadataPath}`] };
+    return {
+      entries: [],
+      diagnostics: [`metadata not readable: ${metadataPath}`],
+      hash: NO_METADATA_HASH,
+    };
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawText);
   } catch {
     // Corrupt sidecar => treat as "no metadata", never propagate.
-    return { entries: [], diagnostics: [`metadata not valid JSON: ${metadataPath}`] };
+    return {
+      entries: [],
+      diagnostics: [`metadata not valid JSON: ${metadataPath}`],
+      hash: NO_METADATA_HASH,
+    };
   }
+  // Valid JSON: fold a stable hash of the exact bytes into the revision. Any
+  // metadata edit (e.g. a changed due date) therefore bumps facts().revision.
+  const hash = createHash('sha256').update(rawText).digest('hex');
   const rawEntries = extractEntries(parsed);
   if (rawEntries === undefined) {
-    return { entries: [], diagnostics: [`metadata shape unrecognized: ${metadataPath}`] };
+    return { entries: [], diagnostics: [`metadata shape unrecognized: ${metadataPath}`], hash };
   }
   const entries: MetaEntry[] = [];
   rawEntries.forEach(({ id, obj }, index) => {
@@ -169,7 +189,7 @@ function loadMetadata(metadataPath: string): MetadataResult {
     if (entry.path) entry.path = normPath(entry.path);
     entries.push(entry);
   });
-  return { entries, diagnostics: [] };
+  return { entries, diagnostics: [], hash };
 }
 
 /** Numeric timestamp for ordering; unparseable values sort as oldest. */
@@ -234,6 +254,7 @@ export function createLoginoteAdapter(opts: LoginoteAdapterOptions): LinkAdapter
   // for debugging but never surfaced as errors and never affect `reachable`.
   const metadata = loadMetadata(metadataPath);
   const metadataEntries = metadata.entries;
+  const metadataHash = metadata.hash;
   const metadataDiagnostics = metadata.diagnostics;
   void metadataDiagnostics;
 
@@ -313,7 +334,12 @@ export function createLoginoteAdapter(opts: LoginoteAdapterOptions): LinkAdapter
 
     async facts(): Promise<AdapterFacts> {
       const result = scan();
-      return { reachable: result.reachable, count: result.count, revision: result.revision };
+      // Fold the metadata content hash into the revision so that metadata-only
+      // edits (e.g. a changed due date) invalidate downstream caches too.
+      const revision = createHash('sha256')
+        .update(`${result.revision}|${metadataHash}`)
+        .digest('hex');
+      return { reachable: result.reachable, count: result.count, revision };
     },
 
     async search(q: string, limits: ScanLimits): Promise<LinkItem[]> {
