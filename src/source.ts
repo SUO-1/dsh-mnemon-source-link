@@ -321,7 +321,11 @@ export function createLinkMemorySource(config: Partial<LinkConfig> = {}): Memory
             remaining -= text.length;
           };
 
-          switch (request.route.id) {
+          // `request.route` is a composed `MemoryViewRoute`: its `id` is the View
+          // Route id, namespaced by the Source instance key (`source:link/search`).
+          // Dispatch on the Source's own route id — anything else falls through
+          // to `default` and silently returns empty evidence inside a real View.
+          switch (request.route.sourceRouteId) {
             case 'search': {
               const q = memoryInputText(input.query, 'query', 2000, false) ?? '';
               queryText = q;
