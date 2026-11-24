@@ -77,7 +77,8 @@ export function splitFrontmatter(raw: string): {
   body: string;
   titleLine?: number;
 } {
-  const lines = raw.split('\n');
+  const normalized = raw.replace(/\r\n?/g, '\n');
+  const lines = normalized.split('\n');
   const firstLine = lines.length > 0 ? lines[0].replace(/^\uFEFF/, '') : '';
 
   if (firstLine.trim() === '---') {
@@ -161,7 +162,9 @@ export function parseMarkdown(input: {
   mtimeMs: number;
 }): LinkItem {
   const { raw, relPath, source, type, mtimeMs } = input;
-  const { frontmatter, body, titleLine } = splitFrontmatter(raw);
+  // Unify line endings (CRLF/CR -> LF) so regexes anchored to `$` see no trailing `\r`.
+  const normalized = raw.replace(/\r\n?/g, '\n');
+  const { frontmatter, body, titleLine } = splitFrontmatter(normalized);
 
   const fmTitle = typeof frontmatter.title === 'string' ? frontmatter.title.trim() : '';
   const title = headingTitle(body) ?? (fmTitle || fileStem(relPath));
