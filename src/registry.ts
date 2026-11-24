@@ -55,7 +55,11 @@ export interface RegistryFacts {
   reachable: boolean;
   count: number;
   revision: string;
-  per: Record<LinkSourceId, AdapterFacts>;
+  /**
+   * Per-source facts. Only **enabled** sources appear here: a disabled source
+   * has no key at all (it is not reported as `reachable: false`).
+   */
+  per: Partial<Record<LinkSourceId, AdapterFacts>>;
 }
 
 export interface LinkRegistry {
@@ -90,6 +94,19 @@ function asPositiveInt(value: unknown, fallback: number): number {
     : fallback;
 }
 
+/**
+ * An enabled source must point at an absolute root. An empty root is just as
+ * invalid as a relative one: both are configuration mistakes that would
+ * otherwise be silently skipped. Disabled sources are never validated.
+ */
+function assertEnabledRoot(id: LinkSourceId, root: string): void {
+  if (isAbsolute(root)) return;
+  throw new Error(
+    `dsh-mnemon-source-link: enabled ${id} source requires an absolute root path, got "${root}". ` +
+      `Set an absolute path (for example "C:\\Users\\me\\vault") or set enabled:false for this source.`,
+  );
+}
+
 function normalizeSource(
   raw: unknown,
   id: LinkSourceId,
@@ -99,13 +116,10 @@ function normalizeSource(
   const enabled = typeof rec.enabled === 'boolean' ? rec.enabled : defaults.enabled;
   const root = typeof rec.root === 'string' ? rec.root : defaults.root;
 
-  // An enabled source with a non-empty root must point at an absolute path;
-  // a relative root would depend on the process cwd and is rejected loudly.
-  if (enabled && root.trim() !== '' && !isAbsolute(root)) {
-    throw new Error(
-      `dsh-mnemon-source-link: enabled ${id} source requires an absolute root, got "${root}"`,
-    );
-  }
+  // An enabled source with a relative *or empty* root is rejected loudly: a
+  // relative root depends on the process cwd, an empty root means "forgot to
+  // configure me". Neither may slip through as a silently skipped source.
+  if (enabled) assertEnabledRoot(id, root);
 
   const out: LinkSourceConfig = { enabled, root };
   const includes = asStringArray(rec.includes);
@@ -191,7 +205,10 @@ function concat<T>(groups: T[][]): T[] {
 export function createRegistry(config: LinkConfig): LinkRegistry {
   const adapters: LinkAdapter[] = [];
 
-  if (config.obsidian.enabled && config.obsidian.root.trim() !== '') {
+  // Enabled sources must resolve to an absolute root; an enabled-but-unusable
+  // source is a configuration error, never a silently skipped one.
+  if (config.obsidian.enabled) {
+    assertEnabledRoot('obsidian', config.obsidian.root);
     adapters.push(
       createObsidianAdapter({
         root: config.obsidian.root,
@@ -201,7 +218,8 @@ export function createRegistry(config: LinkConfig): LinkRegistry {
       }),
     );
   }
-  if (config.loginote.enabled && config.loginote.root.trim() !== '') {
+  if (config.loginote.enabled) {
+    assertEnabledRoot('loginote', config.loginote.root);
     adapters.push(
       createLoginoteAdapter({
         root: config.loginote.root,
@@ -211,7 +229,8 @@ export function createRegistry(config: LinkConfig): LinkRegistry {
       }),
     );
   }
-  if (config.ledger.enabled && config.ledger.root.trim() !== '') {
+  if (config.ledger.enabled) {
+    assertEnabledRoot('ledger', config.ledger.root);
     adapters.push(
       createLedgerAdapter({
         root: config.ledger.root,
@@ -237,7 +256,7 @@ export function createRegistry(config: LinkConfig): LinkRegistry {
       const entries = await Promise.all(
         adapters.map(async (adapter) => [adapter.id, await adapter.facts()] as const),
       );
-      const per = {} as Record<LinkSourceId, AdapterFacts>;
+      const per: Partial<Record<LinkSourceId, AdapterFacts>> = {};
       let count = 0;
       let reachable = false;
       for (const [id, facts] of entries) {
