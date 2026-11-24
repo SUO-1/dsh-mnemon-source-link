@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, test } from 'vitest';
+import { createLedgerAdapter } from '../src/adapters/ledger';
 import { createLoginoteAdapter } from '../src/adapters/loginote';
 import { createObsidianAdapter } from '../src/adapters/obsidian';
 
@@ -278,5 +279,63 @@ describe('createLoginoteAdapter', () => {
     writeFileSync(notePath, '# note\n\nchanged body\n');
     const revC = (await make().facts()).revision;
     expect(revC).not.toBe(revB);
+  });
+});
+
+const ledgerRoot = fileURLToPath(new URL('./fixtures/ledger', import.meta.url));
+
+describe('createLedgerAdapter', () => {
+  const bigLimits = {
+    maxFiles: 5000,
+    maxFileBytes: 1_048_576,
+    maxResults: 20,
+    maxCharacters: 4000,
+  };
+
+  test('ledger splits entries and keeps line provenance', async () => {
+    const a = createLedgerAdapter({ root: ledgerRoot, maxFileBytes: 1_048_576 });
+    const list = await a.list({ maxFiles: 5000, maxFileBytes: 1_048_576, maxResults: 20, maxCharacters: 4000 });
+    expect(list.length).toBeGreaterThanOrEqual(3);
+    expect(list.every((i) => typeof i.provenance.line === 'number' && i.provenance.line > 0)).toBe(true);
+    expect(list.some((i) => i.id.startsWith('ledger:交接.md#L'))).toBe(true);
+  });
+
+  test('ledger search finds the right entry; missing file is not fatal', async () => {
+    const a = createLedgerAdapter({ root: ledgerRoot, maxFileBytes: 1_048_576 });
+    const r = await a.search('解析器', { maxFiles: 5000, maxFileBytes: 1_048_576, maxResults: 5, maxCharacters: 2000 });
+    expect(r.length).toBeGreaterThan(0);
+    const bad = createLedgerAdapter({ root: ledgerRoot, file: '不存在.md', maxFileBytes: 1_048_576 });
+    expect((await bad.facts()).reachable).toBe(false);
+    expect(await bad.read('ledger:不存在.md#L1')).toBeUndefined();
+  });
+
+  test('ledger read locates a chunk by id; graph is empty', async () => {
+    const a = createLedgerAdapter({ root: ledgerRoot, maxFileBytes: 1_048_576 });
+    const list = await a.list(bigLimits);
+    const target = list.find((i) => i.body.includes('解析器'));
+    expect(target).toBeDefined();
+    const read = await a.read(target!.id);
+    expect(read?.id).toBe(target!.id);
+    expect(read?.source).toBe('ledger');
+    expect(read?.type).toBe('ledger');
+    expect(read?.tags).toEqual([]);
+    expect(read?.observations).toEqual([]);
+    expect(await a.graph(target!.id)).toEqual([]);
+    expect(await a.read('ledger:交接.md#L999')).toBeUndefined();
+    expect(await a.read('obsidian:交接.md#L1')).toBeUndefined();
+  });
+
+  test('ledger marks the truncated tail chunk when the file exceeds maxFileBytes', async () => {
+    const root = tempDir('ledger-trunc-');
+    writeFileSync(join(root, '交接.md'), `# top\n\n- ${'x'.repeat(200)}\n- tail 末尾\n`);
+    const a = createLedgerAdapter({ root, maxFileBytes: 60 });
+    const list = await a.list({
+      maxFiles: 5000,
+      maxFileBytes: 60,
+      maxResults: 20,
+      maxCharacters: 10_000,
+    });
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.some((i) => i.truncated === true)).toBe(true);
   });
 });
