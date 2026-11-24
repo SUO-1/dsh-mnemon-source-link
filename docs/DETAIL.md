@@ -35,7 +35,7 @@
 
 安装后可在「插件 → 可组合记忆」面板调整。初始为 `enabled: false` + 空 `root`，可见但暂不读取。
 
-- `obsidian`: `{ enabled, root, includes? , excludes? }`
+- `obsidian`: `{ enabled, root, excludes? }`
 - `loginote`: `{ enabled, root, metadataPath? }`
 - `ledger`: `{ enabled, root, file? }`
 - `maxFiles`: 扫描文件上限，默认 `5000`
@@ -67,10 +67,11 @@
 
 - 本期（P1）只做**只读召回**，不做写回 / 沉淀（P2/P3 另行规划）。
 - 不建本地库或向量索引；v1 使用有界扫描 + mtime 缓存，必要时 v2 再上全文索引。
-- 编码：统一按 UTF-8 读取并剥离 BOM；非法字节替换为 `�` 并在条目上留痕，不因个别坏文件丢掉整库。
+- 编码：统一按 UTF-8 读取并剥离 BOM；非法字节替换为 `�`，不因个别坏文件丢掉整库。
 
 ## 故障排查
 
 - **扫描不到内容**：检查 `root` 是否为绝对路径、`enabled` 是否打开、`excludes` 是否误排除了目标目录。
-- **`availability` 为 degraded / unavailable**：对应源目录不存在或不可读；`hints.reason` 会说明（如 `metadata-missing`）。
+- **`availability` 为 degraded / unavailable**：对应源目录不存在或不可读。
+- **LogiNote 的 `metadata.json` 缺失或损坏**：安全跳过（按「无元数据」处理），源保持 reachable，不会崩溃。
 - **召回无 provenance**：确认本 Source 实例已被纳入当前记忆视图的 `sourceKeys`，并已重启会话。

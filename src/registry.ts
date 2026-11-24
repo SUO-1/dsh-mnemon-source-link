@@ -24,7 +24,6 @@ import { createLedgerAdapter } from './adapters/ledger.js';
 export interface LinkSourceConfig {
   enabled: boolean;
   root: string;
-  includes?: string[];
   excludes?: string[];
   /** Loginote metadata.json path (defaults to `<root>/metadata.json`). */
   metadataPath?: string;
@@ -122,8 +121,6 @@ function normalizeSource(
   if (enabled) assertEnabledRoot(id, root);
 
   const out: LinkSourceConfig = { enabled, root };
-  const includes = asStringArray(rec.includes);
-  if (includes !== undefined) out.includes = includes;
   const excludes = asStringArray(rec.excludes);
   if (excludes !== undefined) out.excludes = excludes;
   if (typeof rec.metadataPath === 'string' && rec.metadataPath.trim() !== '') {

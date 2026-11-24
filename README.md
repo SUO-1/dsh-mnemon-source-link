@@ -57,4 +57,4 @@ pnpm verify      # typecheck + test + build
 
 ## 说明
 
-本仓库当前处于脚手架阶段（Task 1）。业务逻辑（解析、适配器、扫描、注册表、Source 定义）将在后续任务中逐步填入 `src/`。
+实现已完成：只读联邦记忆源 search/read/browse/related，覆盖 Obsidian / LogiNote(只读) / 台账，默认 0 LLM、只读；安装后在插件面板填各源根目录并启用。

@@ -30,7 +30,6 @@ function sourceConfig() {
   return z.object({
     enabled: z.boolean(),
     root: z.string(),
-    includes: z.array(z.string()),
     excludes: z.array(z.string()),
     metadataPath: z.string(),
     file: z.string(),

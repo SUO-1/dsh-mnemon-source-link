@@ -228,6 +228,12 @@ test(
         id: 'obsidian:graph.md',
       });
       expect(related.items.some((item) => item.text.includes('→'))).toBe(true);
+      expect(related.items.length).toBeGreaterThan(0);
+      expect(related.items[0]!.provenance).toMatchObject({
+        kind: 'relation',
+        source: 'obsidian',
+        path: 'graph.md',
+      });
 
       // Management catalog still sees the Source instance and its descriptor.
       const catalog = await runner.managementCatalog();

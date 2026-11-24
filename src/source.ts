@@ -181,6 +181,20 @@ function provenanceFor(kind: string, item: LinkItem): MemoryJsonValue {
   return provenance;
 }
 
+/**
+ * Derive the source-relative file path carried inside a namespaced item id.
+ * Ids look like `obsidian:<relPath>` / `loginote:<relPath>` /
+ * `ledger:<relPath>#L<line>`, so drop the `<source>:` prefix and any trailing
+ * `#L<line>` fragment. The `related` route synthesizes evidence from a related
+ * entry id rather than a parsed LinkItem, so it needs this to satisfy the spec
+ * §13 rule that every route's evidence carries a path.
+ */
+function filePathFromId(id: string, source: string): string {
+  const prefix = `${source}:`;
+  const rest = id.startsWith(prefix) ? id.slice(prefix.length) : id;
+  return rest.replace(/#L\d+$/, '');
+}
+
 const SOURCE_LABELS: Record<LinkSourceId, string> = {
   obsidian: 'Obsidian',
   loginote: 'LogiNote',
@@ -412,6 +426,7 @@ export function createLinkMemorySource(config: Partial<LinkConfig> = {}): Memory
               }
               const relations = await registry.graph(id);
               const source = id.slice(0, Math.max(0, id.indexOf(':'))) as LinkSourceId;
+              const sourcePath = filePathFromId(id, source);
               const cap = request.route.maxResults ?? 10;
               for (let n = 0; n < relations.length && items.length < cap; n += 1) {
                 if (remaining <= 0) break;
@@ -419,7 +434,7 @@ export function createLinkMemorySource(config: Partial<LinkConfig> = {}): Memory
                 push({
                   id: `${id}#rel:${n}`,
                   text: `${rel.type} → ${rel.target}`,
-                  provenance: { kind: 'relation', source },
+                  provenance: { kind: 'relation', source, path: sourcePath },
                 });
               }
               break;

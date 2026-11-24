@@ -203,7 +203,15 @@ test('browse lists allowed ids and related emits type → target', async () => {
     input: { id: 'obsidian:graph.md' },
   });
   expect(related.items.some((i) => i.text.includes('→'))).toBe(true);
-  expect(related.items[0].provenance).toMatchObject({ kind: 'relation', source: 'obsidian' });
+  // Every related item must carry a provenance path pointing at the source file
+  // (spec §13: all four routes are path-traced).
+  for (const item of related.items) {
+    expect(item.provenance).toMatchObject({
+      kind: 'relation',
+      source: 'obsidian',
+      path: 'graph.md',
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
