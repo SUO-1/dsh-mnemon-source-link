@@ -47,19 +47,36 @@ function tsValue(ts: string): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-/** Accumulate items under a character budget (body length), stopping once full. */
+/**
+ * Accumulate items under a strict character budget (body length).
+ *
+ * The total body characters returned never exceed `limits.maxCharacters`:
+ * - `maxResults <= 0` or `maxCharacters <= 0` from the outset ⇒ empty array.
+ * - The first item is always kept; if it alone exceeds the budget its body is
+ *   sliced to the remaining characters and the copy is flagged `truncated`.
+ *   (The cached item is never mutated.)
+ * - Later items are included only when they fit the remaining budget; once the
+ *   budget is exhausted iteration stops.
+ */
 function takeWithinBudget(items: LinkItem[], limits: ScanLimits): LinkItem[] {
   const maxResults = limits.maxResults;
-  const maxCharacters = limits.maxCharacters;
+  let remaining = limits.maxCharacters;
   const out: LinkItem[] = [];
-  let used = 0;
+  if (maxResults <= 0 || remaining <= 0) return out;
+
   for (const item of items) {
-    if (out.length >= maxResults) break;
+    if (out.length >= maxResults || remaining <= 0) break;
     const len = item.body.length;
-    // Always keep the first item so a single oversized note is still visible.
-    if (out.length > 0 && used + len > maxCharacters) break;
-    out.push(item);
-    used += len;
+    if (len <= remaining) {
+      out.push(item);
+      remaining -= len;
+    } else if (out.length === 0) {
+      // First item alone overflows: return a truncated copy within the budget.
+      out.push({ ...item, body: item.body.slice(0, remaining), truncated: true });
+      remaining = 0;
+    } else {
+      break;
+    }
   }
   return out;
 }
