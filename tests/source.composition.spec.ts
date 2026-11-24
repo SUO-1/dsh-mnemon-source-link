@@ -276,31 +276,38 @@ test(
   'an empty Obsidian root still composes and returns empty evidence instead of crashing',
   async () => {
     const emptyRoot = await mkdtemp(join(tmpdir(), 'source-link-empty-'));
-    const harness = await composeHarness({
-      obsidian: { enabled: true, root: emptyRoot },
-      loginote: { enabled: false, root: '' },
-      ledger: { enabled: false, root: '' },
-      maxFiles: 5000,
-      maxFileBytes: 1_048_576,
-    });
     try {
-      expect(harness.runner.inspect().evaluation.state).toBe('ready');
-      expect(harness.turn.view.routes).toHaveLength(READ_CAPABILITIES.length);
-
-      // No entries → empty grant, empty evidence, no throw.
-      const grant = harness.turn.view.readGrants[0]!;
-      expect(grant.value).toEqual({ allowedIds: [], counts: { obsidian: 0 } });
-
-      const search = await harness.turn.executeRoute(viewRoute(harness.turn.view, 'search').id, {
-        query: '图论',
+      // Inside the outer try: if composeHarness throws, the temp root is still removed.
+      const harness = await composeHarness({
+        obsidian: { enabled: true, root: emptyRoot },
+        loginote: { enabled: false, root: '' },
+        ledger: { enabled: false, root: '' },
+        maxFiles: 5000,
+        maxFileBytes: 1_048_576,
       });
-      expect(search.items).toEqual([]);
-      expect(search.truncated).toBe(false);
+      try {
+        expect(harness.runner.inspect().evaluation.state).toBe('ready');
+        expect(harness.turn.view.routes).toHaveLength(READ_CAPABILITIES.length);
 
-      const browse = await harness.turn.executeRoute(viewRoute(harness.turn.view, 'browse').id, {});
-      expect(browse.items).toEqual([]);
+        // No entries → empty grant, empty evidence, no throw.
+        const grant = harness.turn.view.readGrants[0]!;
+        expect(grant.value).toEqual({ allowedIds: [], counts: { obsidian: 0 } });
+
+        const search = await harness.turn.executeRoute(viewRoute(harness.turn.view, 'search').id, {
+          query: '图论',
+        });
+        expect(search.items).toEqual([]);
+        expect(search.truncated).toBe(false);
+
+        const browse = await harness.turn.executeRoute(
+          viewRoute(harness.turn.view, 'browse').id,
+          {},
+        );
+        expect(browse.items).toEqual([]);
+      } finally {
+        await harness.close();
+      }
     } finally {
-      await harness.close();
       await rm(emptyRoot, { recursive: true, force: true });
     }
   },

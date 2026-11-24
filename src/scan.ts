@@ -31,7 +31,10 @@ export interface ScanCache {
 }
 
 export interface ScanOptions {
-  /** Directory names to skip at any depth. Default: ['.git', '.obsidian', 'node_modules']. */
+  /**
+   * Directory names to skip at any depth. Omitted **or empty** both mean
+   * "use the defaults": `['.git', '.obsidian', 'node_modules']`.
+   */
   excludes?: string[];
   /** Hard upper bound on the number of collected files. Default: 5000. */
   maxFiles?: number;
@@ -82,7 +85,14 @@ function emptyResult(reachable: boolean, diagnostics: string[]): ScanResult {
 }
 
 export function scanMarkdown(root: string, opts: ScanOptions): ScanResult {
-  const excludes = new Set(opts.excludes ?? DEFAULT_EXCLUDES);
+  // An empty array is indistinguishable from an omitted one once it has been
+  // through a schema: the plugin `Config` materializes `excludes: []` for every
+  // source, and a real Loader mount would otherwise scan `.git` / `.obsidian` /
+  // `node_modules`. Treat both `undefined` and `[]` as "use the defaults"; only
+  // a non-empty list overrides them.
+  const excludes = new Set(
+    opts.excludes !== undefined && opts.excludes.length > 0 ? opts.excludes : DEFAULT_EXCLUDES,
+  );
   const maxFiles = opts.maxFiles ?? DEFAULT_MAX_FILES;
   const maxFileBytes = opts.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
   const parse = opts.parse;

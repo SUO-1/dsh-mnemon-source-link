@@ -230,6 +230,42 @@ describe('scanMarkdown', () => {
   });
 });
 
+describe('scanMarkdown excludes', () => {
+  /** Root containing `.obsidian/hidden.md`, `node_modules/dep.md` and `visible.md`. */
+  function exclusionTree(): string {
+    const root = tempDir('scan-excludes-');
+    mkdirSync(join(root, '.obsidian'), { recursive: true });
+    mkdirSync(join(root, 'node_modules'), { recursive: true });
+    writeFileSync(join(root, '.obsidian', 'hidden.md'), '# hidden\n');
+    writeFileSync(join(root, 'node_modules', 'dep.md'), '# dep\n');
+    writeFileSync(join(root, 'visible.md'), '# visible\n');
+    return root;
+  }
+
+  const relPaths = (root: string, excludes?: string[]): string[] =>
+    scanMarkdown(root, { parse: parseFirstLine, ...(excludes === undefined ? {} : { excludes }) })
+      .files.map((f) => f.relPath)
+      .sort();
+
+  test('an omitted excludes list uses the defaults (skips .obsidian and node_modules)', () => {
+    expect(relPaths(exclusionTree())).toEqual(['visible.md']);
+  });
+
+  test('an empty excludes array also uses the defaults (schemastery materializes [])', () => {
+    // The plugin `Config` turns an omitted `excludes` into `[]`; the composed
+    // Loader path must still honour `.git` / `.obsidian` / `node_modules`.
+    expect(relPaths(exclusionTree(), [])).toEqual(['visible.md']);
+  });
+
+  test('a non-empty excludes list overrides the defaults', () => {
+    // Only `node_modules` is excluded now, so `.obsidian/hidden.md` is visible.
+    expect(relPaths(exclusionTree(), ['node_modules'])).toEqual([
+      '.obsidian/hidden.md',
+      'visible.md',
+    ]);
+  });
+});
+
 describe('computeRevision', () => {
   test('is order-independent and sensitive to changes', () => {
     const a = { relPath: 'a.md', mtimeMs: 1, size: 10 };
