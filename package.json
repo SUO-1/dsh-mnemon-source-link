@@ -1,0 +1,32 @@
+{
+  "name": "dsh-mnemon-source-link",
+  "version": "0.1.0",
+  "description": "Federated read-only memory Source for Obsidian / LogiNote / task ledger.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "main": "./lib/index.js",
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["lib", "locale", "cordis.patch.yml", "docs", "icon.svg", "README.md"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsdown",
+    "test": "vitest run",
+    "verify": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": { "@deepseek-ai/schemastery": "^3.18.4" },
+  "peerDependencies": { "@deepseek-ai/cordis": "^4.0.1", "dsh-mnemon": "^0.5.53" },
+  "devDependencies": {
+    "dsh-mnemon": "^0.5.53",
+    "tsdown": "^0.22.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0",
+    "@types/node": "^22.0.0"
+  }
+}

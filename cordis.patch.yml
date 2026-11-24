@@ -1,0 +1,9 @@
+- insert:
+    - id: mnemon-source-link
+      name: dsh-mnemon-source-link
+      config:
+        obsidian: { enabled: false, root: "" }
+        loginote: { enabled: false, root: "" }
+        ledger: { enabled: false, root: "" }
+        maxFiles: 5000
+        maxFileBytes: 1048576
