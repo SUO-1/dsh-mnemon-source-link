@@ -3,6 +3,7 @@ import { test, expect } from 'vitest';
 import { DEFAULT_MEMORY_VIEW_BUDGET } from 'dsh-mnemon/contracts';
 import type { MemoryViewRoute } from 'dsh-mnemon/contracts';
 import { createLinkMemorySource } from '../src/source';
+import * as p from '../src/index';
 
 const obsidianRoot = fileURLToPath(new URL('./fixtures/obsidian', import.meta.url));
 const ledgerRoot = fileURLToPath(new URL('./fixtures/ledger', import.meta.url));
@@ -203,6 +204,27 @@ test('browse lists allowed ids and related emits type → target', async () => {
   });
   expect(related.items.some((i) => i.text.includes('→'))).toBe(true);
   expect(related.items[0].provenance).toMatchObject({ kind: 'relation', source: 'obsidian' });
+});
+
+// ---------------------------------------------------------------------------
+// Plugin entry export contract (src/index.ts)
+// ---------------------------------------------------------------------------
+
+test('plugin exports: name/inject/apply/memoryPlugin/Config', () => {
+  expect(p.name).toBe('dsh-mnemon-source-link');
+  expect(p.inject).toEqual(['mnemonMemory']);
+  expect(typeof p.apply).toBe('function');
+  expect(p.memoryPlugin.roles).toContain('source');
+  expect(p.memoryPlugin.provides.map((x) => x.id)).toEqual(
+    expect.arrayContaining(['source', 'source.link']),
+  );
+  // An empty configuration must parse: schemastery keys are optional, so the
+  // settings panel can render before anything is filled in.
+  expect(p.Config({})).toBeTruthy();
+});
+
+test('createLinkMemorySource is re-exported', () => {
+  expect(typeof p.createLinkMemorySource).toBe('function');
 });
 
 test('project with a stale expectedRevision throws', async () => {
