@@ -9,8 +9,5 @@ lib/
 .DS_Store
 Thumbs.db
 
-# 测试类内容不入库（文件保留在本地，pnpm test 照常可跑）
-tests/
-
 # SDD 过程产物（本地过程记录，不入库）
 .superpowers/
