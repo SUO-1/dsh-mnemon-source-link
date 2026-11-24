@@ -13,7 +13,6 @@
 import { randomUUID } from 'node:crypto';
 import {
   defineMemorySource,
-  memoryInputInteger,
   memoryInputRecord,
   memoryInputText,
   truncateMemoryText,
@@ -293,7 +292,12 @@ export function createLinkMemorySource(config: Partial<LinkConfig> = {}): Memory
         },
 
         async query(request): Promise<MemoryEvidence> {
-          const input = memoryInputRecord(request.input ?? null, 'federated-link input');
+          // browse accepts an all-optional payload (including null/undefined);
+          // note memoryInputRecord(null) would throw, so normalize those to {}.
+          const input: Record<string, MemoryJsonValue> =
+            request.input === null || request.input === undefined
+              ? {}
+              : memoryInputRecord(request.input, 'federated-link input');
           const allowed = grantAllowedIds(request.grant);
           const budget = request.route.maxCharacters ?? Number.MAX_SAFE_INTEGER;
 
@@ -321,7 +325,14 @@ export function createLinkMemorySource(config: Partial<LinkConfig> = {}): Memory
             case 'search': {
               const q = memoryInputText(input.query, 'query', 2000, false) ?? '';
               queryText = q;
-              const limit = memoryInputInteger(input.limit, 10, 1, request.route.maxResults ?? 12);
+              // Clamp `limit` to [1, route.maxResults] instead of throwing: the
+              // host schema only constrains "integer", so a reasonable limit:20
+              // must not brick the route. Non-integers fall back to 10.
+              const rawLimit =
+                typeof input.limit === 'number' && Number.isInteger(input.limit)
+                  ? input.limit
+                  : 10;
+              const limit = Math.min(request.route.maxResults ?? 12, Math.max(1, rawLimit));
               const hits = await registry.searchAll(q, limits(limit, budget));
               for (const item of hits) {
                 if (items.length >= limit || remaining <= 0) break;
@@ -339,6 +350,9 @@ export function createLinkMemorySource(config: Partial<LinkConfig> = {}): Memory
             }
 
             case 'read': {
+              // memoryInputText is required ⇒ `id` is present at runtime and an
+              // absent id already throws there; the `undefined` arm only keeps
+              // the type narrowed for `allowed.includes`.
               const id = memoryInputText(input.id, 'id', 300);
               if (id === undefined || !allowed.includes(id)) {
                 throw new Error('federated-link read outside this View ReadGrant');
@@ -383,8 +397,15 @@ export function createLinkMemorySource(config: Partial<LinkConfig> = {}): Memory
             }
 
             case 'related': {
+              // memoryInputText is required ⇒ `id` is present at runtime and an
+              // absent id already throws there; the `undefined` arm only keeps
+              // the type narrowed for the whitelist check.
               const id = memoryInputText(input.id, 'id', 300);
-              if (id === undefined) break;
+              // Enforce the ReadGrant whitelist BEFORE touching the adapter: an
+              // out-of-grant id must never leak relations.
+              if (id === undefined || !allowed.includes(id)) {
+                throw new Error('federated-link related outside this View ReadGrant');
+              }
               const relations = await registry.graph(id);
               const source = id.slice(0, Math.max(0, id.indexOf(':'))) as LinkSourceId;
               const cap = request.route.maxResults ?? 10;

@@ -47,9 +47,9 @@ test('manifest declares 4 described routes and no write capability', () => {
   ).toBe(true);
   expect(def.manifest.capabilities).not.toContain('write');
   expect(def.manifest.capabilities).not.toContain('forget');
-  expect(def.manifest.capabilities).toEqual(
-    expect.arrayContaining(['project', 'search', 'read', 'browse', 'related']),
-  );
+  expect(def.manifest.capabilities).not.toContain('archive');
+  expect(def.manifest.capabilities).not.toContain('import');
+  expect(def.manifest.capabilities).toEqual(['project', 'search', 'read', 'browse', 'related']);
 });
 
 test('facts/project produce revision + readGrant; query search keeps provenance', async () => {
@@ -104,6 +104,77 @@ test('read outside grant throws', async () => {
       input: { id: 'obsidian:不存在.md' },
     }),
   ).rejects.toThrow(/ReadGrant/);
+});
+
+test('related outside grant throws (no relation leak)', async () => {
+  const f = await rt.facts({ scope, scenario: 'agent.root-turn', budget: DEFAULT_BUDGET });
+  const proj = await rt.project({
+    scope,
+    sourceInstanceKey: f.sourceInstanceKey,
+    expectedRevision: f.revision,
+    includeProjection: false,
+    mode: 'routed',
+    maxCharacters: 4000,
+  });
+  const route = routeFor('related', f.sourceInstanceKey, proj.readGrant!.id);
+  await expect(
+    rt.query!({
+      view: { id: 'v1', scope },
+      route,
+      grant: proj.readGrant!,
+      input: { id: 'obsidian:不存在.md' },
+    }),
+  ).rejects.toThrow(/ReadGrant/);
+});
+
+test('search clamps an out-of-range limit instead of throwing', async () => {
+  const f = await rt.facts({ scope, scenario: 'agent.root-turn', budget: DEFAULT_BUDGET });
+  const proj = await rt.project({
+    scope,
+    sourceInstanceKey: f.sourceInstanceKey,
+    expectedRevision: f.revision,
+    includeProjection: false,
+    mode: 'routed',
+    maxCharacters: 4000,
+  });
+  const route = routeFor('search', f.sourceInstanceKey, proj.readGrant!.id);
+
+  // limit:20 > route.maxResults (12) → clamped, never throws.
+  const high = await rt.query!({
+    view: { id: 'v1', scope },
+    route,
+    grant: proj.readGrant!,
+    input: { query: '图论', limit: 20 },
+  });
+  expect(high.items.length).toBeLessThanOrEqual(12);
+
+  // limit:0 → clamped up to 1, never throws.
+  const low = await rt.query!({
+    view: { id: 'v1', scope },
+    route,
+    grant: proj.readGrant!,
+    input: { query: '图论', limit: 0 },
+  });
+  expect(low.items.length).toBeLessThanOrEqual(1);
+});
+
+test('browse tolerates a null input payload', async () => {
+  const f = await rt.facts({ scope, scenario: 'agent.root-turn', budget: DEFAULT_BUDGET });
+  const proj = await rt.project({
+    scope,
+    sourceInstanceKey: f.sourceInstanceKey,
+    expectedRevision: f.revision,
+    includeProjection: false,
+    mode: 'routed',
+    maxCharacters: 4000,
+  });
+  const ev = await rt.query!({
+    view: { id: 'v1', scope },
+    route: routeFor('browse', f.sourceInstanceKey, proj.readGrant!.id),
+    grant: proj.readGrant!,
+    input: null,
+  });
+  expect(Array.isArray(ev.items)).toBe(true);
 });
 
 test('browse lists allowed ids and related emits type → target', async () => {
