@@ -16,6 +16,7 @@ import {
   memoryConfigurationDigest,
 } from 'dsh-mnemon/extension-sdk';
 import { createLinkMemorySource } from './source.js';
+import { registerSettingsBridge } from './settings.js';
 import type { LinkConfig } from './registry.js';
 
 export const name = 'dsh-mnemon-source-link';
@@ -66,6 +67,39 @@ export function apply(ctx: Context, config: Partial<LinkConfig> = {}): void {
     { plugin: memoryPlugin, sources: [createLinkMemorySource(config)] },
     { effectiveDigest: memoryConfigurationDigest(config) },
   );
+
+  // Settings bridge: the Client form (registered in `plugins.bundle.config`)
+  // reads and writes this plugin's configuration through one Host route.
+  const webServer = ctx.get('webServer') as
+    | {
+        register(route: {
+          kind: 'exact' | 'prefix';
+          path: string;
+          handler: (
+            req: import('node:http').IncomingMessage,
+            res: import('node:http').ServerResponse,
+          ) => void | Promise<void>;
+        }): () => void;
+      }
+    | undefined;
+  const configEditor = ctx.get('configEditor') as
+    | {
+        edit(
+          entry: unknown,
+          change: (
+            current: Record<string, unknown>,
+            inherited: Record<string, unknown>,
+          ) => Record<string, unknown>,
+        ): Promise<void>;
+      }
+    | undefined;
+  if (webServer !== undefined) {
+    const entry = (ctx as unknown as { fiber?: { entry?: unknown } }).fiber?.entry;
+    ctx.effect(
+      () => registerSettingsBridge({ webServer, configEditor, entry, config }),
+      'mnemon-source-link settings route',
+    );
+  }
 }
 
 export { createLinkMemorySource } from './source.js';
