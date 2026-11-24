@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdtempSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -10,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, test } from 'vitest';
+import { createLoginoteAdapter } from '../src/adapters/loginote';
 import { createObsidianAdapter } from '../src/adapters/obsidian';
 
 const obsidianRoot = fileURLToPath(new URL('./fixtures/obsidian', import.meta.url));
@@ -163,5 +166,85 @@ describe('createObsidianAdapter', () => {
     const relations = await a.graph('obsidian:graph.md');
     expect(relations.some((r) => r.target === '另一篇')).toBe(true);
     expect(await a.graph('obsidian:missing.md')).toEqual([]);
+  });
+});
+
+const loginoteRoot = fileURLToPath(new URL('./fixtures/loginote', import.meta.url));
+
+describe('createLoginoteAdapter', () => {
+  test('loginote marks due entries as task and keeps metadata read-only', async () => {
+    const metaPath = `${loginoteRoot}/metadata.json`;
+    const before = createHash('sha1').update(readFileSync(metaPath)).digest('hex');
+    const a = createLoginoteAdapter({
+      root: loginoteRoot,
+      maxFiles: 5000,
+      maxFileBytes: 1_048_576,
+    });
+    const list = await a.list({
+      maxFiles: 5000,
+      maxFileBytes: 1_048_576,
+      maxResults: 10,
+      maxCharacters: 4000,
+    });
+    const day01 = list.find((i) => i.title.includes('day01'));
+    expect(day01?.type).toBe('task');
+    expect(day01?.observations.some((o) => o.category === 'due')).toBe(true);
+    expect(day01?.id).toBe('loginote:vault/day01.md');
+    const after = createHash('sha1').update(readFileSync(metaPath)).digest('hex');
+    expect(after).toBe(before); // metadata.json was not modified
+  });
+
+  test('loginote survives missing metadata.json', async () => {
+    const a = createLoginoteAdapter({
+      root: `${loginoteRoot}/vault`,
+      maxFiles: 5000,
+      maxFileBytes: 1_048_576,
+    });
+    expect((await a.facts()).reachable).toBe(true);
+    const list = await a.list({
+      maxFiles: 5000,
+      maxFileBytes: 1_048_576,
+      maxResults: 10,
+      maxCharacters: 4000,
+    });
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.every((i) => i.source === 'loginote')).toBe(true);
+  });
+
+  test('loginote read is prefix-scoped and returns undefined for unknown ids', async () => {
+    const a = createLoginoteAdapter({
+      root: loginoteRoot,
+      maxFiles: 5000,
+      maxFileBytes: 1_048_576,
+    });
+    const item = await a.read('loginote:vault/day01.md');
+    expect(item?.title).toContain('day01');
+    expect(item?.type).toBe('task');
+    expect(await a.read('loginote:does/not/exist.md')).toBeUndefined();
+    expect(await a.read('obsidian:vault/day01.md')).toBeUndefined();
+  });
+
+  test('unmatched metadata entries surface as standalone loginote metadata tasks', async () => {
+    const a = createLoginoteAdapter({
+      root: loginoteRoot,
+      maxFiles: 5000,
+      maxFileBytes: 1_048_576,
+    });
+    const list = await a.list({
+      maxFiles: 5000,
+      maxFileBytes: 1_048_576,
+      maxResults: 20,
+      maxCharacters: 20_000,
+    });
+    const standalone = list.find((i) => i.id === 'loginote:metadata:n2');
+    expect(standalone?.type).toBe('task');
+    expect(standalone?.tags).toEqual([]);
+    expect(standalone?.observations.some((o) => o.category === 'due')).toBe(true);
+  });
+
+  test('factory rejects a relative root', () => {
+    expect(() =>
+      createLoginoteAdapter({ root: 'relative/path', maxFiles: 5000, maxFileBytes: 1_048_576 }),
+    ).toThrow();
   });
 });

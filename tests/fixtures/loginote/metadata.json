@@ -1,0 +1,4 @@
+{ "notes": [
+  { "id": "n1", "title": "day01", "type": "task", "dueDate": "2026-11-20", "tags": ["学习"] },
+  { "id": "n2", "title": "错题本", "dueDate": "2026-12-01" }
+] }
