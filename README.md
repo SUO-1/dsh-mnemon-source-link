@@ -74,6 +74,16 @@ plugin_manager install_bundle  target: <本目录绝对路径>
 
 更多安装后说明见 [`docs/DETAIL.md`](docs/DETAIL.md)。
 
+## 接入召回（Mnemon View）
+
+安装并启用后，本 Source 实例键为 `include:mnemon-source-link`。要让它真正参与召回，需在 `dsh-mnemon` 的 `memoryView` 策略里纳入它（例如加进 `include:mnemon-strategy-scoped` 的 `sourceKeys`，或确认所选策略默认纳入全部源）。重启会话后，`mnemon_recall` 的命中会带 `provenance`。
+
+## 兼容与依赖
+
+- Node ≥ 20。
+- peer 依赖：`@deepseek-ai/cordis ^4.0.1`、`dsh-mnemon ^0.5.53`。
+- 设置表单依赖 DSH 的 volatile 设置机制与 Web 客户端（`dsh.client`）。
+
 ## 目录结构
 
 ```
