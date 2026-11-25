@@ -40,7 +40,7 @@ import type { LinkItem, LinkSourceId, ScanLimits } from './types.js';
 import { matchSnippet } from './markdown.js';
 
 export const LINK_SOURCE_TYPE_ID = 'federated-link';
-export const LINK_SOURCE_ROLE = 'link';
+export const LINK_SOURCE_ROLE = 'narrative';
 export const LINK_CAPABILITIES = ['project', 'search', 'read', 'browse', 'related'] as const;
 
 const ROUTE_IDS = ['search', 'read', 'browse', 'related'] as const;

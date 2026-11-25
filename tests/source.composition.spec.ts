@@ -61,7 +61,7 @@ const testStrategy = defineMemoryStrategy({
     typeId: STRATEGY_TYPE_ID,
     packageName: 'dsh-mnemon-source-link',
     deterministic: true,
-    // This plugin's Source declares role 'link', which the wildcard admits.
+    // This plugin's Source declares role 'narrative', which the wildcard admits.
     supportedSourceRoles: ['*'],
     maxSources: 10,
     maxRoutes: 20,
@@ -239,7 +239,7 @@ test(
       const catalog = await runner.managementCatalog();
       expect(catalog.sources.map((source) => source.sourceInstanceKey)).toEqual([sourceKey]);
       expect(catalog.sources[0]!.management.label).toBe('记忆联动');
-      expect(catalog.sources[0]!.role).toBe('link');
+      expect(catalog.sources[0]!.role).toBe('narrative');
     } finally {
       await harness.close();
     }

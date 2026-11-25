@@ -4,7 +4,7 @@
 
 ## 这是什么
 
-「记忆联动」是一个 `dsh-mnemon` 的 Source 插件。它把三类分散在本地文件里的知识，注册为一个联邦数据源（`role=link`、`typeId=federated-link`），并入 Mnemon 的组合视图（Composable View Memory）。当会话进行召回时，模型可以像读取内置记忆一样检索这三类内容，并且每条证据都带有来源路径（`provenance`），便于溯源。
+「记忆联动」是一个 `dsh-mnemon` 的 Source 插件。它把三类分散在本地文件里的知识，注册为一个联邦数据源（`role=narrative`、`typeId=federated-link`），并入 Mnemon 的组合视图（Composable View Memory）。当会话进行召回时，模型可以像读取内置记忆一样检索这三类内容，并且每条证据都带有来源路径（`provenance`），便于溯源。
 
 它**不新增任何存储**、**不声明写能力**、**不调用其它插件的工具**、**不调用大模型**。
 

@@ -53,7 +53,7 @@ export const memoryPlugin = defineMemoryPlugin({
     'zh-CN': '联邦只读记忆源（Obsidian / LogiNote / 台账）。',
   },
   roles: ['source'],
-  provides: [{ id: 'source' }, { id: 'source.link' }],
+  provides: [{ id: 'source' }, { id: 'source.narrative' }],
 });
 
 /**

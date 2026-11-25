@@ -2,7 +2,7 @@
 
 联邦只读记忆源（Federated read-only Memory Source），把 **Obsidian vault**、**LogiNote 学习笔记库** 与 **工作区任务台账** 三类本地数据接入 `dsh-mnemon` 的统一召回。
 
-- 包类型：`dsh-mnemon` Source 插件（`role=link` / `typeId=federated-link`）
+- 包类型：`dsh-mnemon` Source 插件（`role=narrative` / `typeId=federated-link`）
 - 构建产物：`lib/`（ESM）
 - 许可证：MIT
 

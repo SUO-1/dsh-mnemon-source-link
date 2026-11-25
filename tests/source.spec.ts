@@ -39,7 +39,7 @@ function routeFor(id: string, sourceInstanceKey: string, readGrantId: string): M
 test('manifest declares 4 described routes and no write capability', () => {
   expect(def.manifest.kind).toBe('source');
   expect(def.manifest.typeId).toBe('federated-link');
-  expect(def.manifest.role).toBe('link');
+  expect(def.manifest.role).toBe('narrative');
   expect(def.manifest.routes?.map((r) => r.id)).toEqual(['search', 'read', 'browse', 'related']);
   expect(
     def.manifest.routes?.every(
@@ -224,7 +224,7 @@ test('plugin exports: name/inject/apply/memoryPlugin/Config', () => {
   expect(typeof p.apply).toBe('function');
   expect(p.memoryPlugin.roles).toContain('source');
   expect(p.memoryPlugin.provides.map((x) => x.id)).toEqual(
-    expect.arrayContaining(['source', 'source.link']),
+    expect.arrayContaining(['source', 'source.narrative']),
   );
   // An empty configuration must parse: schemastery keys are optional, so the
   // settings panel can render before anything is filled in.
